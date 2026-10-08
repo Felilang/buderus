@@ -23,7 +23,8 @@
       "wrong_account": "Das angemeldete Konto gehört nicht zum bereits eingerichteten Buderus-Gateway."
     },
     "abort": {
-      "already_configured": "Dieses Gateway ist bereits eingerichtet."
+      "already_configured": "Dieses Gateway ist bereits eingerichtet.",
+      "reauth_successful": "Die Buderus-Authentifizierung wurde erfolgreich erneuert."
     }
   },
   "entity": {
