@@ -85,7 +85,10 @@ class BuderusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 session = async_get_clientsession(self.hass)
                 token_data = await BuderusOAuthClient(session).exchange_code(code, self._code_verifier)
                 if not token_data.get(CONF_REFRESH_TOKEN):
-                    raise BuderusAuthError("Token response did not include a refresh token")
+                    raise BuderusAuthError(
+                        "Token response did not include a refresh token",
+                        0
+                    )
                 info = await validate_input(self.hass, token_data, user_input)
             except BuderusAuthError as err:
                 _LOGGER.warning("SingleKey login failed: %s", err)
@@ -111,4 +114,136 @@ class BuderusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
             description_placeholders={"authorization_url": self._authorization_url},
+        )
+
+    async def async_step_reauth(
+        self,
+        entry_data: dict[str, Any],
+    ) -> config_entries.ConfigFlowResult:
+        self._ensure_authorization_context()
+        return await (
+            self.async_step_reauth_confirm()
+        )
+
+    async def async_step_reauth_confirm(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        self._ensure_authorization_context()
+        errors: dict[str, str] = {}
+        reauth_entry = (
+            self._get_reauth_entry()
+        )
+
+        if user_input is not None:
+            try:
+                code = parse_authorization_response(
+                    user_input["redirect_url"],
+                    self._state,
+                )
+
+                session = async_get_clientsession(
+                    self.hass
+                )
+
+                token_data = (
+                    await BuderusOAuthClient(
+                        session
+                    ).exchange_code(
+                        code,
+                        self._code_verifier,
+                    )
+                )
+
+                if not token_data.get(
+                    CONF_REFRESH_TOKEN
+                ):
+                    raise BuderusAuthError(
+                        "Token response did not include "
+                        "a refresh token",
+                        0,
+                    )
+
+                validation_data = {
+                    CONF_GATEWAY_ID:
+                        reauth_entry.data.get(
+                            CONF_GATEWAY_ID
+                        ),
+                }
+
+                info = await validate_input(
+                    self.hass,
+                    token_data,
+                    validation_data,
+                )
+
+                existing_gateway = str(
+                    reauth_entry.data.get(
+                        CONF_GATEWAY_ID,
+                        "",
+                    )
+                )
+
+                if (
+                    str(info["gateway_id"])
+                    != existing_gateway
+                ):
+                    errors["base"] = (
+                        "wrong_account"
+                    )
+
+                else:
+                    return (
+                        self.async_update_reload_and_abort(
+                            reauth_entry,
+                            data_updates={
+                                CONF_ACCESS_TOKEN:
+                                    token_data[
+                                        CONF_ACCESS_TOKEN
+                                    ],
+                                CONF_REFRESH_TOKEN:
+                                    token_data[
+                                        CONF_REFRESH_TOKEN
+                                    ],
+                                CONF_EXPIRES_AT:
+                                    token_data.get(
+                                        CONF_EXPIRES_AT,
+                                        0,
+                                    ),
+                            },
+                        )
+                    )
+
+            except BuderusAuthError as err:
+                _LOGGER.warning(
+                    "SingleKey reauthentication "
+                    "failed: %s",
+                    err,
+                )
+                errors["base"] = "invalid_auth"
+
+            except BuderusApiError as err:
+                _LOGGER.warning(
+                    "Buderus gateway validation "
+                    "failed during reauth: %s",
+                    err,
+                )
+                errors["base"] = (
+                    "cannot_connect"
+                )
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "redirect_url"
+                    ): str,
+                }
+            ),
+            errors=errors,
+            description_placeholders={
+                "authorization_url":
+                    self._authorization_url,
+            },
         )
