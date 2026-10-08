@@ -8,11 +8,19 @@
           "redirect_url": "Redirect URL from Location header or authorization code",
           "gateway_id": "Gateway ID"
         }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Buderus MX300",
+        "description": "Authentication must be renewed using SingleKey.\n\n1. Open the browser developer tools with F12 before logging in.\n2. Go to the Network tab and enable Preserve log.\n3. Open the SingleKey login URL below and sign in.\n4. After login, a network or redirect error page may appear. That is expected.\n5. In the Network tab, find the last `/auth/connect/authorize/callback` entry.\n6. Copy the `Location` response header. The URL starts with `com.buderus.tt.dashtt://app/login`.\n7. Paste that URL here.\n\n{authorization_url}",
+        "data": {
+          "redirect_url": "Redirect URL from Location header or authorization code"
+        }
       }
     },
     "error": {
       "cannot_connect": "Could not connect to the Buderus/Bosch PointT API.",
-      "invalid_auth": "Could not complete the SingleKey login."
+      "invalid_auth": "Could not complete the SingleKey login.",
+      "wrong_account": "The authenticated account does not match the configured Buderus gateway."
     },
     "abort": {
       "already_configured": "This gateway is already configured."
