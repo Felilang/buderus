@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import logging
 import secrets
 import time
 from typing import Any
@@ -20,6 +21,7 @@ from .const import (
     OAUTH_TOKEN_URL,
 )
 
+_LOGGER = logging.getLogger(__name__)
 
 def create_code_verifier() -> str:
     return base64.urlsafe_b64encode(secrets.token_bytes(64)).rstrip(b"=").decode()
@@ -56,12 +58,21 @@ def parse_authorization_response(value: str, expected_state: str | None = None) 
         params = parse_qs(parsed.query or parsed.fragment)
         if "error" in params:
             description = params.get("error_description", params["error"])[0]
-            raise BuderusAuthError(description)
+            raise BuderusAuthError(
+                description,
+                0
+            )
         if expected_state and params.get("state", [None])[0] != expected_state:
-            raise BuderusAuthError("OAuth state did not match")
+            raise BuderusAuthError(
+                "OAuth state did not match",
+                0
+            )
         code = params.get("code", [None])[0]
         if not code:
-            raise BuderusAuthError("No authorization code found in redirect URL")
+            raise BuderusAuthError(
+                "No authorization code found in redirect URL",
+                0
+            )
         return code
     return value
 
@@ -82,6 +93,9 @@ class BuderusOAuthClient:
         )
 
     async def refresh(self, refresh_token: str) -> dict[str, Any]:
+        _LOGGER.info(
+            "Starting Buderus OAuth token refresh"
+        )
         return await self._token_request(
             {
                 "grant_type": "refresh_token",
@@ -91,21 +105,100 @@ class BuderusOAuthClient:
         )
 
     async def _token_request(self, data: dict[str, str]) -> dict[str, Any]:
+        grant_type = data.get(
+            "grant_type",
+            "unknown",
+        )
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/x-www-form-urlencoded",
             "User-Agent": DEFAULT_USER_AGENT,
         }
+        _LOGGER.debug(
+            "Buderus OAuth request started "
+            "(grant_type=%s)",
+            grant_type,
+        )
         async with self._session.post(OAUTH_TOKEN_URL, data=data, headers=headers) as response:
             body = await response.text()
+            status = response.status
+
+            _LOGGER.debug(
+                "Buderus OAuth response received "
+                "(grant_type=%s, status=%s)",
+                grant_type,
+                status,
+            )
             if response.status in (400, 401, 403):
-                raise BuderusAuthError(f"Token request failed: {response.status} {body}")
+                # Do NOT log the complete response body here.
+                # It could potentially contain sensitive
+                # authentication information.
+                _LOGGER.warning(
+                    "Buderus OAuth authentication "
+                    "request failed "
+                    "(grant_type=%s, status=%s)",
+                    grant_type,
+                    status,
+                )
+                raise BuderusAuthError(
+                    f"Token request failed: {response.status} {body}",
+                    status
+                )
             if response.status >= 400:
-                raise BuderusApiError(f"Token request failed: {response.status} {body}")
-            token_data = await response.json(content_type=None)
+                _LOGGER.warning(
+                    "Buderus OAuth request failed "
+                    "(grant_type=%s, status=%s)",
+                    grant_type,
+                    status,
+                )
+                raise BuderusApiError(
+                    f"Token request failed: {response.status} {body}"                    
+                )
+            try:
+                token_data = (
+                    await response.json(
+                        content_type=None
+                    )
+                )
+            except Exception as err:
+                raise BuderusApiError(
+                    "Invalid JSON response from "
+                    "OAuth token endpoint"
+                ) from err
 
         if "access_token" not in token_data:
-            raise BuderusAuthError("Token response did not include an access token")
-        if "expires_in" in token_data:
-            token_data["expires_at"] = int(time.time()) + int(token_data["expires_in"])
+            _LOGGER.warning(
+                "Buderus OAuth response did not "
+                "contain an access token "
+                "(grant_type=%s)",
+                grant_type,
+            )
+            raise BuderusAuthError(
+                "Token response did not include an access token",
+                status
+            )
+
+        expires_in = token_data.get(
+            "expires_in"
+        )
+
+        if expires_in is not None:
+            token_data["expires_at"] = (
+                int(time.time())
+                + int(expires_in)
+            )
+
+        _LOGGER.info(
+            "Buderus OAuth request successful: "
+            "grant_type=%s, "
+            "expires_in=%s, "
+            "refresh_token_returned=%s",
+            grant_type,
+            expires_in,
+            bool(
+                token_data.get(
+                    "refresh_token"
+                )
+            ),
+        )
         return token_data
