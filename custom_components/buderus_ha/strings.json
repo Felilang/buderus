@@ -23,7 +23,8 @@
       "wrong_account": "The authenticated account does not match the configured Buderus gateway."
     },
     "abort": {
-      "already_configured": "This gateway is already configured."
+      "already_configured": "This gateway is already configured.",
+      "reauth_successful": "Buderus authentication was successfully renewed."
     }
   },
   "entity": {
