@@ -8,11 +8,19 @@
           "redirect_url": "Redirect-URL aus dem Location-Header oder Autorisierungscode",
           "gateway_id": "Gateway-ID"
         }
+      },
+      "reauth_confirm": {
+        "title": "Buderus MX300 erneut authentifizieren",
+        "description": "Die Anmeldung muss erneut über SingleKey durchgeführt werden.\n\n1. Öffne vor dem Login die Browser-Entwicklertools mit F12.\n2. Wechsle zum Tab Netzwerk und aktiviere Protokoll beibehalten.\n3. Öffne die SingleKey-Login-URL unten und melde dich an.\n4. Nach dem Login kann eine Netzwerk- oder Weiterleitungsfehlermeldung erscheinen. Das ist erwartbar.\n5. Suche im Netzwerk-Tab den letzten Eintrag `/auth/connect/authorize/callback`.\n6. Kopiere aus den Antwort-Headern den `Location` Header. Die URL beginnt mit `com.buderus.tt.dashtt://app/login`.\n7. Füge diese URL hier ein.\n\n{authorization_url}",
+        "data": {
+          "redirect_url": "Redirect-URL aus dem Location-Header oder Autorisierungscode"
+        }
       }
     },
     "error": {
       "cannot_connect": "Verbindung zur Buderus/Bosch PointT API fehlgeschlagen.",
-      "invalid_auth": "SingleKey-Login konnte nicht abgeschlossen werden."
+      "invalid_auth": "SingleKey-Login konnte nicht abgeschlossen werden.",
+      "wrong_account": "Das angemeldete Konto gehört nicht zum bereits eingerichteten Buderus-Gateway."
     },
     "abort": {
       "already_configured": "Dieses Gateway ist bereits eingerichtet."
