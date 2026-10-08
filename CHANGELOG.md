@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.1 - 2026-10-08
+
+### Added
+
+- Added the ability to reauthenticate via the web
+- Added logging for token refresh information (time, success, invalid_time)
+- Added translations for reauthentication
+  
+### Fixed
+
+- Fixed a bug that caused incorrect exception handling
+- Fixed multiple token refresh requests occurring simultaneously
+
 ## 0.2.0 - 2026-08-27
 
 ### Added
